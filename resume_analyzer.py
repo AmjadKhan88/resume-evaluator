@@ -185,6 +185,55 @@ EXPECTED_FIELDS = [
 
 RESUME_TEXT_LIMIT = 8000  # characters sent to the API
 
+def _repair_truncated_json(raw: str) -> dict | None:
+    """
+    Attempt to recover a truncated JSON object from the AI.
+
+    When max_tokens cuts the response mid-string, the JSON is invalid.
+    We find the last successfully completed key-value pair and close
+    the object, filling any missing required fields with safe defaults.
+    This is better than crashing — the user still gets partial results.
+    """
+    try:
+        # Remove any trailing partial field — find last complete value
+        # A complete value ends with: " (string), ] (array), or a digit
+        cut = max(
+            raw.rfind('",'),   # end of a string value followed by comma
+            raw.rfind('],'),   # end of an array followed by comma
+            raw.rfind('"}'),   # end of string, closing object
+            raw.rfind('"]'),   # end of string inside array
+        )
+        if cut == -1:
+            return None
+
+        # Slice to last safe point and close the JSON object
+        partial = raw[:cut + 2].rstrip(',').rstrip()
+        if not partial.endswith('}'):
+            partial += '\n}'
+
+        result = json.loads(partial)
+
+        # Fill in any fields that got cut off with safe defaults
+        defaults = {
+            "skills_found":        [],
+            "skills_missing":      [],
+            "structure_score":     0,
+            "structure_feedback":  "Analysis was cut off — please re-upload.",
+            "content_score":       0,
+            "content_feedback":    "Analysis was cut off — please re-upload.",
+            "ats_tips":            ["Re-upload your resume for complete ATS tips."],
+            "overall_score":       0,
+            "summary":             "Analysis was incomplete due to response length. Please try again.",
+        }
+        for key, default in defaults.items():
+            if key not in result:
+                result[key] = default
+
+        return result
+
+    except Exception:
+        return None
+
 
 def analyze_resume(resume_text: str, filename: str = "") -> dict:
     """
@@ -276,7 +325,7 @@ RULES:
                 {"role": "user",   "content": user_message},
             ],
             temperature=0.3,              # See temperature explanation above
-            max_tokens=1500,              # Enough for full JSON + all lists
+            max_tokens=4096,              # Enough for full JSON + all lists
             response_format={"type": "json_object"},  # Force valid JSON output
         )
 
@@ -287,8 +336,18 @@ RULES:
         # The API guarantees valid JSON syntax but NOT that all our fields exist.
         try:
             result = json.loads(raw)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"AI returned invalid JSON: {e}\nRaw response: {raw[:300]}")
+        except json.JSONDecodeError:
+            # The model was cut off mid-JSON (max_tokens reached).
+            # We attempt to salvage it by truncating to the last complete field.
+            # Strategy: find the last comma at the top level and close the object.
+            repaired = _repair_truncated_json(raw)
+            if repaired:
+                result = repaired
+            else:
+                raise ValueError(
+                    "AI response was cut off and could not be repaired. "
+                    "Please try uploading again."
+                )
 
         # Check all expected fields are present
         missing_fields = [f for f in EXPECTED_FIELDS if f not in result]
