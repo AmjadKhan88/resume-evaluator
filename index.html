@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ResumeAI — Instant Resume Analysis</title>
+
+  <!-- Cabinet Grotesk: editorial confidence. Inter: data clarity. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════════════
+       DESIGN TOKENS — all colours live here, theme switch is one toggle
+    ════════════════════════════════════════════════════════════════════ */
+    :root {
+      /* Dark theme (default) */
+      --bg:          #0D0F1A;
+      --bg-raised:   #131520;
+      --bg-card:     #181B2A;
+      --border:      #222640;
+      --border-2:    #2A2E4A;
+      --text:        #E4E6F0;
+      --text-2:      #9096B8;
+      --text-3:      #555A80;
+      --accent:      #6366F1;
+      --accent-glow: rgba(99,102,241,0.18);
+      --accent-soft: rgba(99,102,241,0.10);
+      --green:       #10B981;
+      --green-soft:  rgba(16,185,129,0.10);
+      --green-border:rgba(16,185,129,0.22);
+      --red:         #F43F5E;
+      --red-soft:    rgba(244,63,94,0.10);
+      --red-border:  rgba(244,63,94,0.22);
+      --yellow:      #F59E0B;
+      --yellow-soft: rgba(245,158,11,0.10);
+      --shadow:      0 2px 24px rgba(0,0,0,0.45);
+      --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 8px 32px rgba(0,0,0,0.2);
+      --radius:      16px;
+      --radius-sm:   10px;
+      --radius-xs:   6px;
+    }
+
+    [data-theme="light"] {
+      --bg:          #F7F8FC;
+      --bg-raised:   #FFFFFF;
+      --bg-card:     #FFFFFF;
+      --border:      #E2E5F0;
+      --border-2:    #D0D4E8;
+      --text:        #111320;
+      --text-2:      #555A80;
+      --text-3:      #9096B8;
+      --accent:      #4F52D3;
+      --accent-glow: rgba(79,82,211,0.12);
+      --accent-soft: rgba(79,82,211,0.07);
+      --green:       #059669;
+      --green-soft:  rgba(5,150,105,0.08);
+      --green-border:rgba(5,150,105,0.2);
+      --red:         #E11D48;
+      --red-soft:    rgba(225,29,72,0.07);
+      --red-border:  rgba(225,29,72,0.2);
+      --yellow:      #D97706;
+      --yellow-soft: rgba(217,119,6,0.08);
+      --shadow:      0 2px 16px rgba(0,0,0,0.06);
+      --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       RESET + BASE
+    ════════════════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+      /* Subtle grid background — dark only */
+      background-image: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+      background-size: 32px 32px;
+    }
+
+    [data-theme="light"] body {
+      background-image: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       TOPBAR
+    ════════════════════════════════════════════════════════════════════ */
+    .topbar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13,15,26,0.82);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 58px;
+      transition: background 0.3s;
+    }
+
+    [data-theme="light"] .topbar {
+      background: rgba(247,248,252,0.88);
+    }
+
+    .logo {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 900;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+
+    .logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+
+    .tag-internee {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      background: var(--bg-card);
+      border: 1px solid var(--border-2);
+      border-radius: 100px;
+      padding: 3px 12px;
+    }
+
+    /* Theme toggle button */
+    .theme-btn {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: 1px solid var(--border-2);
+      background: var(--bg-card);
+      color: var(--text-2);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    }
+
+    .theme-btn:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      transform: rotate(20deg);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       HERO SECTION
+    ════════════════════════════════════════════════════════════════════ */
+    .hero {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 72px 24px 48px;
+      text-align: center;
+    }
+
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-glow);
+      border-radius: 100px;
+      padding: 5px 14px;
+      margin-bottom: 28px;
+    }
+
+    .hero-kicker::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    h1 {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 900;
+      font-size: clamp(2.4rem, 6vw, 3.8rem);
+      line-height: 1.04;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      margin-bottom: 18px;
+    }
+
+    h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, var(--accent) 0%, #A78BFA 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 1.05rem;
+      color: var(--text-2);
+      max-width: 460px;
+      margin: 0 auto 44px;
+      line-height: 1.7;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       UPLOAD CARD
+    ════════════════════════════════════════════════════════════════════ */
+    .upload-wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    .upload-card {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      box-shadow: var(--shadow-card);
+    }
+
+    /* Drop zone — the core interaction area */
+    .drop-zone {
+      position: relative;
+      border: 2px dashed var(--border-2);
+      border-radius: var(--radius-sm);
+      padding: 44px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    /* The invisible file input covers the entire drop zone.
+       This is the standard technique: visible styling on the parent,
+       functional input hidden but interactive underneath. */
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer;
+      width: 100%; height: 100%;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      transform: scale(1.005);
+    }
+
+    .drop-zone.has-file {
+      border-color: var(--green);
+      border-style: solid;
+      background: var(--green-soft);
+    }
+
+    .drop-icon {
+      font-size: 2.6rem;
+      margin-bottom: 12px;
+      display: block;
+      transition: transform 0.2s;
+    }
+
+    .drop-zone:hover .drop-icon { transform: translateY(-3px); }
+
+    .drop-title {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text);
+      margin-bottom: 5px;
+    }
+
+    .drop-hint {
+      font-size: 0.8rem;
+      color: var(--text-3);
+    }
+
+    .drop-hint span {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* File name display — appears after selection */
+    .file-status {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: var(--green-soft);
+      border: 1px solid var(--green-border);
+      border-radius: var(--radius-xs);
+      font-size: 0.84rem;
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    .file-status.visible { display: flex; }
+
+    .file-status-icon { font-size: 1rem; flex-shrink: 0; }
+
+    .file-name-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-remove {
+      cursor: pointer;
+      opacity: 0.6;
+      font-size: 1rem;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--green);
+      padding: 0;
+    }
+
+    .file-remove:hover { opacity: 1; }
+
+    /* Submit button */
+    .btn-submit {
+      width: 100%;
+      height: 52px;
+      background: var(--accent);
+      color: #fff;
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: 0.01em;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      opacity: 0.92;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 28px rgba(99,102,241,0.4);
+    }
+
+    .btn-submit:active:not(:disabled) { transform: translateY(0); }
+
+    .btn-submit:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-arrow { transition: transform 0.2s; }
+    .btn-submit:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
+
+    /* Loading spinner */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.25);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       LOADING OVERLAY
+       Why loading state matters: async AI calls take 3-8 seconds.
+       Without feedback, users assume the app is broken and refresh,
+       causing duplicate requests. A clear loading state manages
+       expectations and prevents accidental double-submissions.
+    ════════════════════════════════════════════════════════════════════ */
+    .loading-section {
+      display: none;
+      max-width: 600px;
+      margin: 0 auto 48px;
+      padding: 0 24px;
+    }
+
+    .loading-section.visible { display: block; }
+
+    .loading-card {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px 32px;
+      text-align: center;
+    }
+
+    .loading-ring {
+      width: 64px; height: 64px;
+      margin: 0 auto 20px;
+      border: 3px solid var(--border-2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    .loading-title {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+    }
+
+    .loading-steps {
+      font-size: 0.84rem;
+      color: var(--text-3);
+    }
+
+    .loading-step {
+      opacity: 0;
+      animation: fadeStep 0.5s ease forwards;
+    }
+
+    .loading-step:nth-child(1) { animation-delay: 0.2s; }
+    .loading-step:nth-child(2) { animation-delay: 2.0s; }
+    .loading-step:nth-child(3) { animation-delay: 4.0s; }
+
+    @keyframes fadeStep {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       RESULTS SECTION
+    ════════════════════════════════════════════════════════════════════ */
+    .results-section {
+      display: none;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 100px;
+      animation: fadeUp 0.5s ease forwards;
+    }
+
+    .results-section.visible { display: block; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .results-title {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .results-filename {
+      font-size: 0.82rem;
+      color: var(--text-3);
+      font-weight: 400;
+      margin-left: 8px;
+    }
+
+    .btn-reanalyze {
+      height: 38px;
+      padding: 0 18px;
+      border: 1px solid var(--border-2);
+      background: var(--bg-card);
+      color: var(--text-2);
+      font-size: 0.84rem;
+      font-weight: 500;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+
+    .btn-reanalyze:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── OVERALL SCORE HERO ─────────────────────────────────── */
+    .score-hero {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px 40px;
+      display: flex;
+      align-items: center;
+      gap: 40px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-card);
+      flex-wrap: wrap;
+    }
+
+    /* SVG ring — the signature animated element.
+       The arc stroke-dasharray trick: circumference = 2πr.
+       We set stroke-dashoffset to animate from 0% to the target percentage.
+       This gives us a smooth "drawing" effect with pure CSS. */
+    .score-ring-wrap {
+      position: relative;
+      width: 120px; height: 120px;
+      flex-shrink: 0;
+    }
+
+    .score-ring-wrap svg {
+      width: 100%; height: 100%;
+      transform: rotate(-90deg); /* Start arc from top, not right */
+    }
+
+    .score-ring-track {
+      fill: none;
+      stroke: var(--border-2);
+      stroke-width: 8;
+    }
+
+    .score-ring-fill {
+      fill: none;
+      stroke-width: 8;
+      stroke-linecap: round;
+      /* Start fully offset (invisible), animate to target */
+      stroke-dasharray: 314; /* 2π × 50 */
+      stroke-dashoffset: 314;
+      transition: stroke-dashoffset 1.2s cubic-bezier(0.16, 1, 0.3, 1),
+                  stroke 0.3s;
+    }
+
+    .score-ring-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .score-ring-num {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 900;
+      font-size: 2.1rem;
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+
+    .score-ring-label {
+      font-size: 0.65rem;
+      color: var(--text-3);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 2px;
+    }
+
+    .score-hero-body { flex: 1; min-width: 200px; }
+
+    .score-hero-grade {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 1.4rem;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .score-hero-summary {
+      font-size: 0.92rem;
+      color: var(--text-2);
+      line-height: 1.7;
+      max-width: 540px;
+    }
+
+    /* ── SUB-SCORE GRID ─────────────────────────────────────── */
+    .sub-score-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .score-card {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px 28px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .score-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .score-card-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-3);
+      margin-bottom: 4px;
+    }
+
+    .score-card-title {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .score-num {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 900;
+      font-size: 2rem;
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+
+    .score-bar-track {
+      height: 5px;
+      background: var(--border-2);
+      border-radius: 100px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      width: 0%;
+      transition: width 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s;
+    }
+
+    .score-card-feedback {
+      font-size: 0.86rem;
+      color: var(--text-2);
+      line-height: 1.65;
+    }
+
+    /* ── SKILLS + ATS GRID ─────────────────────────────────── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .info-card {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px 28px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .info-card-header {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 18px;
+    }
+
+    .info-card-icon {
+      width: 30px; height: 30px;
+      border-radius: var(--radius-xs);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .icon-green { background: var(--green-soft); }
+    .icon-red   { background: var(--red-soft); }
+    .icon-indigo { background: var(--accent-soft); }
+
+    .info-card-title {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .info-card-count {
+      margin-left: auto;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-3);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 2px 9px;
+    }
+
+    /* Skill tag chips */
+    .tag-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .skill-tag {
+      font-size: 0.76rem;
+      font-weight: 500;
+      padding: 4px 11px;
+      border-radius: 100px;
+      border: 1px solid;
+      transition: transform 0.15s;
+    }
+
+    .skill-tag:hover { transform: translateY(-1px); }
+
+    .tag-found {
+      color: var(--green);
+      background: var(--green-soft);
+      border-color: var(--green-border);
+    }
+
+    .tag-missing {
+      color: var(--red);
+      background: var(--red-soft);
+      border-color: var(--red-border);
+    }
+
+    /* ATS tips list */
+    .ats-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .ats-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: flex-start;
+    }
+
+    .ats-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .ats-item:first-child { padding-top: 0; }
+
+    .ats-num {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 0.72rem;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-glow);
+      border-radius: 100px;
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .ats-text {
+      font-size: 0.85rem;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+
+    /* Score color classes */
+    .c-green  { color: var(--green); }
+    .c-yellow { color: var(--yellow); }
+    .c-red    { color: var(--red); }
+    .c-accent { color: var(--accent); }
+
+    .bg-green  { background: var(--green); }
+    .bg-yellow { background: var(--yellow); }
+    .bg-red    { background: var(--red); }
+
+    /* ── ERROR CARD ─────────────────────────────────────────── */
+    .error-section {
+      display: none;
+      max-width: 600px;
+      margin: 0 auto 48px;
+      padding: 0 24px;
+    }
+
+    .error-section.visible { display: block; }
+
+    .error-card {
+      background: var(--red-soft);
+      border: 1px solid var(--red-border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .error-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 1px; }
+
+    .error-title {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--red);
+      margin-bottom: 4px;
+    }
+
+    .error-msg {
+      font-size: 0.86rem;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+
+    /* ── EMPTY STATE ─────────────────────────────────────────── */
+    .empty-tag {
+      font-size: 0.82rem;
+      color: var(--text-3);
+      font-style: italic;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       RESPONSIVE
+    ════════════════════════════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      .info-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .topbar { padding: 0 20px; }
+      .tag-internee { display: none; }
+      h1 { font-size: 2.2rem; }
+      .hero { padding: 48px 20px 32px; }
+      .score-hero { padding: 28px 24px; gap: 24px; }
+      .score-card { padding: 22px 20px; }
+      .sub-score-grid { grid-template-columns: 1fr; }
+      .info-grid { grid-template-columns: 1fr; }
+      .info-card { padding: 22px 20px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════
+       TOPBAR
+  ════════════════════════════════════════════════ -->
+  <nav class="topbar">
+    <a class="logo" href="#">
+      <span class="logo-dot"></span>
+      ResumeAI
+    </a>
+    <div class="topbar-right">
+      <span class="tag-internee">Internee.pk · Task 2</span>
+      <button class="theme-btn" id="theme-btn" aria-label="Toggle theme" title="Toggle dark/light mode">🌙</button>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════
+       HERO
+  ════════════════════════════════════════════════ -->
+  <section class="hero">
+    <div class="hero-kicker">AI-Powered · Instant Feedback</div>
+    <h1>Your Resume,<br/><em>Brutally Honest.</em></h1>
+    <p class="hero-sub">Upload your resume and get a detailed score on structure, content, and ATS compatibility — in seconds.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       UPLOAD FORM
+  ════════════════════════════════════════════════ -->
+  <section class="upload-wrapper">
+    <div class="upload-card">
+      <!--
+        We use a hidden <input type="file"> overlaid on the styled drop zone.
+        The entire zone is the click/drop target — no ugly browser button visible.
+      -->
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" accept=".pdf,.docx" aria-label="Upload resume"/>
+        <span class="drop-icon" id="drop-icon">📄</span>
+        <div class="drop-title">Drop your resume here</div>
+        <div class="drop-hint">or <span>click to browse</span> · PDF or DOCX · Max 5 MB</div>
+      </div>
+
+      <!-- File status — hidden until a file is selected -->
+      <div class="file-status" id="file-status">
+        <span class="file-status-icon">✅</span>
+        <span class="file-name-text" id="file-name-text">filename.pdf</span>
+        <button class="file-remove" id="file-remove" title="Remove file">✕</button>
+      </div>
+
+      <!--
+        Why FormData?
+        ─────────────
+        FormData is the browser-native way to send files over fetch().
+        It encodes the file as multipart/form-data — the same format HTML
+        forms use natively. The alternative (base64 JSON) inflates file
+        size by ~33% and requires decoding on the server. FormData:
+        - Streams the file efficiently
+        - Sets the correct Content-Type header automatically
+        - Works identically to a traditional form POST
+        - Flask's request.files can read it directly without any extra parsing
+      -->
+      <button class="btn-submit" id="submit-btn" disabled>
+        <span class="btn-submit-inner" id="btn-inner">
+          Analyze Resume <span class="btn-arrow">→</span>
+        </span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       LOADING STATE
+       Shown during the AI API call (3-8 seconds).
+       Staged messages prevent anxiety from silence.
+  ════════════════════════════════════════════════ -->
+  <section class="loading-section" id="loading-section">
+    <div class="loading-card">
+      <div class="loading-ring"></div>
+      <div class="loading-title">Analyzing your resume…</div>
+      <div class="loading-steps">
+        <div class="loading-step">📄 Extracting text from your file</div>
+        <div class="loading-step">🔍 Scanning skills and structure</div>
+        <div class="loading-step">🤖 Generating AI feedback</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       ERROR STATE
+  ════════════════════════════════════════════════ -->
+  <section class="error-section" id="error-section">
+    <div class="error-card">
+      <span class="error-icon">⚠️</span>
+      <div>
+        <div class="error-title">Analysis failed</div>
+        <div class="error-msg" id="error-msg">Something went wrong. Please try again.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       RESULTS — injected by JS after API response
+  ════════════════════════════════════════════════ -->
+  <section class="results-section" id="results-section"></section>
+
+  <!-- ═══════════════════════════════════════════════
+       JAVASCRIPT
+  ════════════════════════════════════════════════ -->
+  <script>
+    'use strict';
+
+    // ── Element refs ────────────────────────────────────────────────────────────
+    const dropZone      = document.getElementById('drop-zone');
+    const fileInput     = document.getElementById('file-input');
+    const fileStatus    = document.getElementById('file-status');
+    const fileNameText  = document.getElementById('file-name-text');
+    const fileRemove    = document.getElementById('file-remove');
+    const dropIcon      = document.getElementById('drop-icon');
+    const submitBtn     = document.getElementById('submit-btn');
+    const btnInner      = document.getElementById('btn-inner');
+    const loadingSection= document.getElementById('loading-section');
+    const errorSection  = document.getElementById('error-section');
+    const errorMsg      = document.getElementById('error-msg');
+    const resultsSection= document.getElementById('results-section');
+    const themeBtn      = document.getElementById('theme-btn');
+
+    let selectedFile = null;
+
+    // ── Theme toggle ────────────────────────────────────────────────────────────
+    const html = document.documentElement;
+    const savedTheme = localStorage.getItem('resume-ai-theme') || 'dark';
+    html.setAttribute('data-theme', savedTheme);
+    themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+
+    themeBtn.addEventListener('click', () => {
+      const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem('resume-ai-theme', next);
+    });
+
+    // ── File selection helpers ──────────────────────────────────────────────────
+    function setFile(file) {
+      if (!file) return;
+
+      // Client-side validation before any network call
+      // Error handling strategy: fail fast, fail clearly.
+      // We check type and size immediately so users don't wait for a server error.
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!['pdf', 'docx'].includes(ext)) {
+        showError('Invalid file type. Please upload a PDF or DOCX file.');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showError('File is too large. Maximum size is 5 MB.');
+        return;
+      }
+
+      selectedFile = file;
+      fileNameText.textContent = file.name;
+      fileStatus.classList.add('visible');
+      dropZone.classList.add('has-file');
+      dropIcon.textContent = '✅';
+      submitBtn.disabled = false;
+      hideError();
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      fileInput.value = '';
+      fileStatus.classList.remove('visible');
+      dropZone.classList.remove('has-file');
+      dropIcon.textContent = '📄';
+      submitBtn.disabled = true;
+    }
+
+    fileInput.addEventListener('change', e => setFile(e.target.files[0]));
+    fileRemove.addEventListener('click', clearFile);
+
+    // ── Drag and drop ──────────────────────────────────────────────────────────
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', e => { if (!dropZone.contains(e.relatedTarget)) dropZone.classList.remove('drag-over'); });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) setFile(file);
+    });
+
+    // ── UI state helpers ────────────────────────────────────────────────────────
+    function setLoading(on) {
+      /*
+        Loading state UX:
+        - Disable the button to prevent double-submission
+        - Replace button text with a spinner (preserves button dimensions)
+        - Show the animated loading card with staged messages
+        - Hide previous results/errors
+
+        Without this, users click "Analyze" again when nothing seems to happen,
+        causing multiple simultaneous API calls and confusing duplicate results.
+      */
+      submitBtn.disabled = on;
+      if (on) {
+        btnInner.innerHTML = '<span class="spinner"></span> Analyzing…';
+        loadingSection.classList.add('visible');
+        errorSection.classList.remove('visible');
+        resultsSection.classList.remove('visible');
+        resultsSection.innerHTML = '';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        btnInner.innerHTML = 'Analyze Resume <span class="btn-arrow">→</span>';
+        loadingSection.classList.remove('visible');
+        submitBtn.disabled = !selectedFile;
+      }
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorSection.classList.add('visible');
+      loadingSection.classList.remove('visible');
+      resultsSection.classList.remove('visible');
+      errorSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function hideError() {
+      errorSection.classList.remove('visible');
+    }
+
+    // ── Form submission ─────────────────────────────────────────────────────────
+    submitBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      setLoading(true);
+
+      /*
+        Why FormData for file upload?
+        ─────────────────────────────
+        FormData creates a multipart/form-data payload — the standard for
+        binary file transfers over HTTP. fetch() sets the Content-Type
+        header automatically, including the boundary string the server
+        uses to parse individual parts.
+
+        We must NOT set Content-Type manually with FormData — doing so
+        omits the boundary and breaks Flask's request.files parsing.
+
+        Alternative: base64-encode the file in JSON → ~33% size increase,
+        requires explicit decoding server-side. FormData is strictly better.
+      */
+      const fd = new FormData();
+      fd.append('resume', selectedFile);
+
+      try {
+        const res = await fetch('/upload', { method: 'POST', body: fd });
+
+        // Always parse JSON — even error responses have a body
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error('Server returned an unreadable response. Is Flask running?');
+        }
+
+        if (!res.ok || data.error) {
+          throw new Error(data.error || `Server error (HTTP ${res.status})`);
+        }
+
+        renderResults(data, selectedFile.name);
+        setLoading(false);
+
+      } catch (err) {
+        /*
+          Error handling strategy:
+          ─────────────────────────
+          We catch two categories of errors:
+          1. Network errors (fetch throws): server down, no internet, CORS
+          2. Application errors (res.ok=false): bad file, quota exceeded, etc.
+
+          Both produce user-readable messages. We never show a raw stack trace.
+          For debugging, errors are also logged to console.error().
+        */
+        console.error('Analysis error:', err);
+        setLoading(false);
+        showError(err.message || 'Something went wrong. Please check your connection and try again.');
+      }
+    });
+
+    // ── Scoring helpers ──────────────────────────────────────────────────────────
+    function scoreColor(n) {
+      if (n >= 75) return 'green';
+      if (n >= 50) return 'yellow';
+      return 'red';
+    }
+
+    function scoreGrade(n) {
+      if (n >= 90) return 'Exceptional';
+      if (n >= 75) return 'Strong';
+      if (n >= 60) return 'Solid';
+      if (n >= 40) return 'Needs Work';
+      return 'Poor';
+    }
+
+    function esc(s) {
+      return String(s ?? '')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+    }
+
+    // ── Results renderer ─────────────────────────────────────────────────────────
+    function renderResults(d, filename) {
+      const oc    = scoreColor(d.overall_score);
+      const grade = scoreGrade(d.overall_score);
+      const circ  = 2 * Math.PI * 50; // r=50
+      const dash  = (d.overall_score / 100) * circ;
+
+      const colorMap = {
+        green:  'var(--green)',
+        yellow: 'var(--yellow)',
+        red:    'var(--red)',
+      };
+
+      // ── Overall score hero ────────────────────────────────────────────────
+      const hero = `
+        <div class="score-hero">
+          <div class="score-ring-wrap">
+            <svg viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+              <circle class="score-ring-track" cx="55" cy="55" r="50"/>
+              <circle class="score-ring-fill"
+                id="ring-fill"
+                cx="55" cy="55" r="50"
+                stroke="${colorMap[oc]}"
+                stroke-dasharray="${circ.toFixed(1)}"
+                stroke-dashoffset="${circ.toFixed(1)}"/>
+            </svg>
+            <div class="score-ring-center">
+              <span class="score-ring-num c-${oc}" id="ring-num">0</span>
+              <span class="score-ring-label">/ 100</span>
+            </div>
+          </div>
+          <div class="score-hero-body">
+            <div class="score-hero-grade c-${oc}">${esc(grade)}</div>
+            <p class="score-hero-summary">${esc(d.summary)}</p>
+          </div>
+        </div>`;
+
+      // ── Sub-score cards ───────────────────────────────────────────────────
+      const makeScoreCard = (label, title, score, feedback) => {
+        const c = scoreColor(score);
+        return `
+          <div class="score-card">
+            <div class="score-card-top">
+              <div>
+                <div class="score-card-label">${label}</div>
+                <div class="score-card-title">${title}</div>
+              </div>
+              <div class="score-num c-${c}">${score}</div>
+            </div>
+            <div class="score-bar-track">
+              <div class="score-bar-fill bg-${c}" style="width:0%" data-target="${score}"></div>
+            </div>
+            <p class="score-card-feedback">${esc(feedback)}</p>
+          </div>`;
+      };
+
+      const subScores = `
+        <div class="sub-score-grid">
+          ${makeScoreCard('Score', 'Structure', d.structure_score, d.structure_feedback)}
+          ${makeScoreCard('Score', 'Content',   d.content_score,   d.content_feedback)}
+        </div>`;
+
+      // ── Skills found ──────────────────────────────────────────────────────
+      const foundTags = (d.skills_found || []).length
+        ? (d.skills_found || []).map(s => `<span class="skill-tag tag-found">${esc(s)}</span>`).join('')
+        : '<span class="empty-tag">No skills detected</span>';
+
+      // ── Skills missing ────────────────────────────────────────────────────
+      const missingTags = (d.skills_missing || []).length
+        ? (d.skills_missing || []).map(s => `<span class="skill-tag tag-missing">${esc(s)}</span>`).join('')
+        : '<span class="empty-tag">Nothing flagged</span>';
+
+      // ── ATS tips ──────────────────────────────────────────────────────────
+      const atsTips = (d.ats_tips || []).length
+        ? (d.ats_tips || []).map((t, i) => `
+            <li class="ats-item">
+              <span class="ats-num">${i + 1}</span>
+              <span class="ats-text">${esc(t)}</span>
+            </li>`).join('')
+        : '<li class="ats-item"><span class="ats-text empty-tag">No tips generated</span></li>';
+
+      const infoGrid = `
+        <div class="info-grid">
+          <div class="info-card">
+            <div class="info-card-header">
+              <div class="info-card-icon icon-green">✅</div>
+              <div class="info-card-title">Skills Found</div>
+              <span class="info-card-count">${(d.skills_found||[]).length}</span>
+            </div>
+            <div class="tag-cloud">${foundTags}</div>
+          </div>
+
+          <div class="info-card">
+            <div class="info-card-header">
+              <div class="info-card-icon icon-red">⚠️</div>
+              <div class="info-card-title">Missing Skills</div>
+              <span class="info-card-count">${(d.skills_missing||[]).length}</span>
+            </div>
+            <div class="tag-cloud">${missingTags}</div>
+          </div>
+
+          <div class="info-card">
+            <div class="info-card-header">
+              <div class="info-card-icon icon-indigo">🎯</div>
+              <div class="info-card-title">ATS Tips</div>
+              <span class="info-card-count">${(d.ats_tips||[]).length}</span>
+            </div>
+            <ul class="ats-list">${atsTips}</ul>
+          </div>
+        </div>`;
+
+      // ── Inject + show ─────────────────────────────────────────────────────
+      resultsSection.innerHTML = `
+        <div class="results-header">
+          <div class="results-title">
+            Analysis Complete
+            <span class="results-filename">${esc(filename)}</span>
+          </div>
+          <button class="btn-reanalyze" id="btn-reanalyze">← Upload another</button>
+        </div>
+        ${hero}
+        ${subScores}
+        ${infoGrid}`;
+
+      resultsSection.classList.add('visible');
+      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Hook "upload another" button
+      document.getElementById('btn-reanalyze').addEventListener('click', () => {
+        resultsSection.classList.remove('visible');
+        resultsSection.innerHTML = '';
+        clearFile();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      // ── Animate score ring (signature element) ────────────────────────────
+      // Defer one frame so the element is painted before we mutate it
+      requestAnimationFrame(() => {
+        const fill = document.getElementById('ring-fill');
+        const numEl = document.getElementById('ring-num');
+        if (!fill || !numEl) return;
+
+        // Animate the SVG arc stroke-dashoffset from full-offset (hidden) to target
+        const targetOffset = circ - dash;
+        fill.style.strokeDashoffset = targetOffset.toFixed(1);
+
+        // Count-up the number in sync with the arc animation
+        const target = d.overall_score;
+        const duration = 1200;
+        const start = performance.now();
+        function tick(now) {
+          const t = Math.min((now - start) / duration, 1);
+          // Ease out cubic
+          const eased = 1 - Math.pow(1 - t, 3);
+          numEl.textContent = Math.round(eased * target);
+          if (t < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+
+        // Animate score bars
+        document.querySelectorAll('.score-bar-fill[data-target]').forEach(bar => {
+          requestAnimationFrame(() => {
+            bar.style.width = bar.dataset.target + '%';
+          });
+        });
+      });
+    }
+  </script>
+</body>
+</html>
