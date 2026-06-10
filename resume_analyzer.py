@@ -164,10 +164,10 @@ def _make_llm():
     temperature=0.3: consistent scoring (±3 pts) with natural phrasing.
     """
     return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash",
         google_api_key=os.getenv("OPENAI_API_KEY"),
         temperature=0.3,
-        max_output_tokens=2048,
+        max_output_tokens=4096,
         max_retries=1,          # fail fast — don't waste 2 minutes retrying
     )
 
